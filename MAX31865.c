@@ -1,7 +1,3 @@
-/************************************************************************************/
-/*      Sous Programme de gestion du MAX31865 Circuit de mesure de PT100            */
-/*                                                          14/XII/2023             */
-/************************************************************************************/
 #include "mcc_generated_files/mcc.h"
 #include "mcc_generated_files/spi2.h"
 #include "mcc_generated_files/spi1.h"
@@ -9,137 +5,134 @@
 #include "MAX31865.h"
 #include <math.h>
 
-void Init_MAX31865(void)
+
+
+/**
+ * \fn MAX31865_Init
+ * \brief Fonction permet d'initialiser l'instance du composant.
+ * \param    PT100Sensor sensor
+ * \return   void
+ */
+void MAX31865_Init(PT100Sensor sensor)
 {
-    if(SPI2_Open(SPI2_DEFAULT)& SPI1_Open(SPI1_DEFAULT))
+    MAX31865_Write_Register(sensor, MAX31856_CONFIG_REG_WRITE, 0xC3);        
+    __delay_ms(100);                                                 
+}
+
+
+
+uint16_t MAX31865_Read_Resistance(PT100Sensor sensor)
+{
+    uint8_t cmd = MAX31856_RTDMSB_READ | 0x80;
+    uint8_t val[2];
+
+    Set_CS(sensor.cs_id);
+    if (sensor.spi == SPI_IF1) 
     {
-        __delay_ms(500);
-        MAX31865_WRITE_REGISTER(MAX31856_CONFIG_REG_WRITE,0xC3,1);
-        __delay_ms(200);
-        MAX31865_WRITE_REGISTER(MAX31856_CONFIG_REG_WRITE,0xC3,0);
-        __delay_ms(200);
-        MAX31865_WRITE_REGISTER(MAX31856_CONFIG_REG_WRITE,0xC3,5);
-        __delay_ms(200);
-    }
-}
-
-void MAX31865_WRITE_REGISTER(uint8_t NUM_REG, uint8_t VAL, uint8_t ADRESS)
-{
-    uint8_t DATASPI[2];
-    
-    DATASPI[0] = NUM_REG;
-    DATASPI[1] = VAL;
-    
-    
-    Set_CS(ADRESS);
-
-    __delay_us(10);
-    
-    if(ADRESS <= 1)
-    {    
-        SPI1_WriteBlock(&DATASPI, 2);
-    }    
-    else
-    {    
-        SPI2_WriteBlock(&DATASPI, 2);
-    }
-    __delay_us(10);
-    Release_CS();
-}
-
-
-void MAX31865_INIT(uint8_t VALUE, uint8_t ADMOD)
-{
-    
-    MAX31865_WRITE_REGISTER(MAX31856_CONFIG_REG_WRITE,0xC3,ADMOD);        //BIAS, AUTO, 50Hz
-    __delay_ms(63);                                                 //minimum 62.5mSec before a result can be read
-}
-
-
-uint8_t MAX31865_READ_REGISTER8(uint8_t ADR_REG,uint8_t ADRMAX)
-{
-    uint8_t VALREG;
-    
-    Set_CS(ADRMAX);
-
-    
-    __delay_us(10);
-    if(ADRMAX <= 1)
-    {    
-        VALREG = SPI1_ExchangeByte(ADR_REG);
-        SPI1_ReadBlock(&VALREG, 1);
-    }    
-    else
-    {    
-        VALREG = SPI2_ExchangeByte(ADR_REG);
-        SPI2_ReadBlock(&VALREG, 1);
-    }
- 
-    __delay_us(10);
-    
-    Release_CS();
-    
-    return(VALREG);
-}
-
-uint16_t MAX31865_READ_VALPT100(uint8_t ADR_REGRES,uint8_t ADREMAX)
-{
-    uint16_t VALUPT100;
-    uint8_t VALRES[2],DUMMY;
-    double VALRESPT100;
-    
-    Set_CS(ADREMAX);
-    
-    
-    __delay_us(10);
-    if (ADREMAX <= 1)
-    {    
-        DUMMY = SPI1_ExchangeByte(ADR_REGRES);
-        SPI1_ReadBlock(&VALRES, 2);
-    }
-    else
+        SPI1_ExchangeByte(cmd);
+        SPI1_ReadBlock(val, 2);
+    } 
+    else 
     {
-        DUMMY = SPI2_ExchangeByte(ADR_REGRES);
-        SPI2_ReadBlock(&VALRES, 2);
-    }    
-    __delay_us(10);    
-    
+        SPI2_ExchangeByte(cmd);
+        SPI2_ReadBlock(val, 2);
+    }
     Release_CS();
-    
-    VALUPT100 = ((uint16_t)(VALRES[0])*256)+VALRES[1];
-    
-    VALUPT100 = VALUPT100 >> 1;
-    VALRESPT100 = (VALUPT100) * MAX31856_R_REF;
-    VALRESPT100 = VALRESPT100 / (double)(MAX31856_ADC_RESOLUTION);
-    VALRESPT100 = VALRESPT100 * 100.0;
-    
-    return (uint16_t)(VALRESPT100);
+    uint16_t raw = ((uint16_t)val[0] << 8) | val[1];
+    raw >>= 1;
+
+    sensor.Resistance = (double)raw * MAX31856_R_REF / MAX31856_ADC_RESOLUTION;
+
+    return  (uint16_t)(sensor.Resistance*100.0); 
 } 
 
-int16_t ComputeTemperatureFromResistanceMeasurement(double MeasuredResistance)
+/**
+ * \fn ComputeResistanceToTemperature
+ * \brief Fonction qui convertit une résistance en température.
+ *  à tester pour la mesure de température négative
+ * \param    double Rt : résistance mesurée 
+ * \return   int16_t : status_reg
+ */
+int16_t ComputeResistanceToTemperature(double Rt)
 {
+    const double R0    = 100.0;
+
     double a     = 3.9083E-03;
     double b     = -5.7750E-07;
-    double R0    = 100.0;
+    double c     = -4.183E-12;
+
     double CalculatedTempInCent = 0;
-    double tmp_1 = 0;
-    double tmp_2 = 0;
-    double tmp_3 = 0;
+
+    double T = -200.0;
+    double Rcalc;
     
-    if(MeasuredResistance >= R0)
+    if (Rt >= R0) 
     {
-        tmp_1 = 1.0 - (MeasuredResistance/R0);
-        tmp_1 *= (4.0*b);
-        tmp_2 = (a*a);
-        
-        tmp_3 = sqrt(tmp_2 - tmp_1);
-        tmp_3 -= a; 
-        tmp_3 /= (2.0*b);
-        
-        CalculatedTempInCent = (tmp_3*100.00);
-    }    
+        // T >= 0°C : résolution directe
+        double discriminant = a*a - 4*b*(1 - Rt / R0);
+        if (discriminant < 0) return -999.9; // erreur
+        T = (-a + sqrt(discriminant)) / (2*b);
+    } 
+    else 
+    {
+        // T < 0°C : résolution par itération (Newton-Raphson ou binaire)
+        double Tmin = -200.0, Tmax = 0.0;
+        while ((Tmax - Tmin) > 0.01) 
+        {
+            T = (Tmax + Tmin) / 2.0;
+            Rcalc = R0 * (1 + a*T + b*T*T + c*(T - 100)*T*T*T);
+            if (Rcalc < Rt)
+                Tmax = T;
+            else
+                Tmin = T;
+        }
+    }
+    CalculatedTempInCent = T * 100.0;
+
     return((int16_t)(CalculatedTempInCent));
-}  
+}
+
+
+/**
+ * \fn MAX31865_Write_Register
+ * \brief Fonction permet d'écrire dans un registre du composant.
+ * \param    PT100Sensor sensor
+ * \param    uint8_t reg
+ * \param    uint8_t value
+ * \return   void
+ */
+void MAX31865_Write_Register(PT100Sensor sensor, uint8_t reg, uint8_t value)
+{
+    uint8_t data[2] = { reg & 0x7F, value };
+
+    Set_CS(sensor.cs_id);
+    if (sensor.spi == SPI_IF1)
+        SPI1_WriteBlock(data, 2);
+    else
+        SPI2_WriteBlock(data, 2);
+    Release_CS();
+}
+
+
+uint8_t MAX31865_Read_Register(PT100Sensor sensor)
+{
+    uint8_t val;
+
+    Set_CS(sensor.cs_id);
+    if (sensor.spi == SPI_IF1) 
+    {
+        SPI1_ExchangeByte(cmd);
+        SPI1_ReadBlock(val, 1);
+    } 
+    else 
+    {
+        SPI2_ExchangeByte(cmd);
+        SPI2_ReadBlock(val, 1);
+    }
+    Release_CS();
+
+    return(val);
+}
 
 void Set_CS(uint8_t ADREMAX)
 {

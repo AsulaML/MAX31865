@@ -35,15 +35,29 @@
 #define MAX31865_FAULT_RTDINLOW       0x08
 #define MAX31865_FAULT_OVUV           0x04
 
+typedef enum 
+{
+    SPI_IF1,
+    SPI_IF2
+} SPI_INTERFACE;
 
-void MAX31865_INIT(uint8_t VALUE, uint8_t ADMOD);
-void MAX31865_WRITE_REGISTER(uint8_t NUM_REG, uint8_t VAL, uint8_t ADRESS);
+typedef struct 
+{
+    uint8_t cs_id;      // Identifiant chip select (0, 1, 5)
+    double Resistance;
+    SPI_INTERFACE spi;  // SPI1 ou SPI2
+} PT100Sensor;
+
+
+
+void MAX31865_Init(PT100Sensor sensor);
+void MAX31865_Write_Register(PT100Sensor sensor, uint8_t reg, uint8_t value);
+
 uint8_t MAX31865_READ_REGISTER8(uint8_t ADR_REG,uint8_t ADRMAX);
 uint16_t MAX31865_READ_VALPT100(uint8_t ADR_REGRES,uint8_t ADREMAX);
-int16_t ComputeTemperatureFromResistanceMeasurement(double RESISTANCE);
+int16_t ComputeResistanceToTemperature(double Rt);
 void Set_CS(uint8_t ADREMAX);
 void Release_CS(void);
-void Init_MAX31865(void);
 #ifdef	__cplusplus
 extern "C" {
 #endif /* __cplusplus */
