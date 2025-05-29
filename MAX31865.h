@@ -51,23 +51,13 @@ typedef struct
 
 
 void MAX31865_Init(PT100Sensor sensor);
-void MAX31865_Write_Register(PT100Sensor sensor, uint8_t reg, uint8_t value);
-
-uint8_t MAX31865_READ_REGISTER8(uint8_t ADR_REG,uint8_t ADRMAX);
-uint16_t MAX31865_READ_VALPT100(uint8_t ADR_REGRES,uint8_t ADREMAX);
+uint16_t MAX31865_Read_Resistance(PT100Sensor sensor);
 int16_t ComputeResistanceToTemperature(double Rt);
-void Set_CS(uint8_t ADREMAX);
-void Release_CS(void);
-#ifdef	__cplusplus
-extern "C" {
-#endif /* __cplusplus */
+void MAX31865_Write_Register(PT100Sensor sensor, uint8_t reg, uint8_t value);
+uint8_t MAX31865_Read_Register(PT100Sensor sensor);
+void MAX31865_CS_Select(PT100Sensor sensor);
+void MAX31865_CS_Deselect(void);
 
-    // TODO If C++ is being used, regular C code needs function names to have C 
-    // linkage so the functions can be used by the c code. 
-
-#ifdef	__cplusplus
-}
-#endif /* __cplusplus */
 
 #endif	/* XC_HEADER_TEMPLATE_H */
 

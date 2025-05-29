@@ -20,13 +20,18 @@ void MAX31865_Init(PT100Sensor sensor)
 }
 
 
-
+/**
+ * \fn MAX31865_Read_Resistance
+ * \brief Fonction qui permet de lire la valeur de la résistance.
+ * \param    PT100Sensor sensor
+ * \return   uint16_t
+ */
 uint16_t MAX31865_Read_Resistance(PT100Sensor sensor)
 {
     uint8_t cmd = MAX31856_RTDMSB_READ | 0x80;
     uint8_t val[2];
 
-    Set_CS(sensor.cs_id);
+    MAX31865_CS_Select(sensor.cs_id);
     if (sensor.spi == SPI_IF1) 
     {
         SPI1_ExchangeByte(cmd);
@@ -37,7 +42,7 @@ uint16_t MAX31865_Read_Resistance(PT100Sensor sensor)
         SPI2_ExchangeByte(cmd);
         SPI2_ReadBlock(val, 2);
     }
-    Release_CS();
+    MAX31865_CS_Deselect();
     uint16_t raw = ((uint16_t)val[0] << 8) | val[1];
     raw >>= 1;
 
@@ -105,20 +110,25 @@ void MAX31865_Write_Register(PT100Sensor sensor, uint8_t reg, uint8_t value)
 {
     uint8_t data[2] = { reg & 0x7F, value };
 
-    Set_CS(sensor.cs_id);
+    MAX31865_CS_Select(sensor.cs_id);
     if (sensor.spi == SPI_IF1)
         SPI1_WriteBlock(data, 2);
     else
         SPI2_WriteBlock(data, 2);
-    Release_CS();
+    MAX31865_CS_Deselect();
 }
 
-
+/**
+ * \fn MAX31865_Read_Register
+ * \brief Fonction qui permet de lire la valeur d'un registre.
+ * \param    PT100Sensor sensor
+ * \return   uint8_t
+ */
 uint8_t MAX31865_Read_Register(PT100Sensor sensor)
 {
     uint8_t val;
 
-    Set_CS(sensor.cs_id);
+    MAX31865_CS_Select(sensor.cs_id);
     if (sensor.spi == SPI_IF1) 
     {
         SPI1_ExchangeByte(cmd);
@@ -129,14 +139,20 @@ uint8_t MAX31865_Read_Register(PT100Sensor sensor)
         SPI2_ExchangeByte(cmd);
         SPI2_ReadBlock(val, 1);
     }
-    Release_CS();
+    MAX31865_CS_Deselect();
 
     return(val);
 }
 
-void Set_CS(uint8_t ADREMAX)
+/**
+ * \fn MAX31865_CS_Select
+ * \brief Fonction qui permet de sélectionner le bon CS.
+ * \param    PT100Sensor sensor
+ * \return   void
+ */
+void MAX31865_CS_Select(PT100Sensor sensor)
 {
-    switch(ADREMAX)
+    switch(sensor.cs_id)
     {
         case 0x00:                  /* PT100 J5 @0 sonde 1*/
             CS_MES1_SetLow();
@@ -161,7 +177,13 @@ void Set_CS(uint8_t ADREMAX)
     }
 }
 
-void Release_CS(void)
+/**
+ * \fn MAX31865_CS_Deselect
+ * \brief Fonction qui permet de désélectionner les CS.
+ * \param    void
+ * \return   void
+ */
+void MAX31865_CS_Deselect(void)
 {
     CS_MES1_SetHigh();
     CS_MES2_SetHigh();
