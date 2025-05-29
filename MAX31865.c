@@ -5,7 +5,9 @@
 #include "MAX31865.h"
 #include <math.h>
 
-
+PT100Sensor PT100_S1 = { .cs_id = 0x00, .spi = SPI_IF1 };
+PT100Sensor PT100_S2 = { .cs_id = 0x01, .spi = SPI_IF1 };
+PT100Sensor PT100_BF = { .cs_id = 0x05, .spi = SPI_IF2 };
 
 /**
  * \fn MAX31865_Init
