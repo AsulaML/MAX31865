@@ -37,6 +37,8 @@
 
 // TODO Insert C++ class definitions if appropriate
 
+#define MAX31856_R_REF       130.00
+
 // TODO Insert declarations
 #define MAX31856_CONFIG_REG_READ       0x00
 #define MAX31856_CONFIG_REG_WRITE      0x80
